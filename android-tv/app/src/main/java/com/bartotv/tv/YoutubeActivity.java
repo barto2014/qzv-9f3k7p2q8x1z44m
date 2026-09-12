@@ -53,14 +53,13 @@ public class YoutubeActivity extends Activity {
                         }
                         if (t.startsWith("err:")) {
                             String code = t.substring(4);
-                            // 101/150 = el dueño desactivó la inserción: ningún embed lo reproduce.
-                            // Se carga el watch móvil dentro de la app (sigue sin salir a otra app).
-                            if (!watchFallback && (code.equals("101") || code.equals("150"))) {
-                                watchFallback = true;
-                                web.loadUrl("https://m.youtube.com/watch?v=" + videoId + "&autoplay=1");
-                                handler.postDelayed(mutePoll, 4000);
+                            // 101/150/153 = bloqueado o player rechazado: solo la app oficial lo abre.
+                            // El resto de YouTube sigue embed dentro de la app.
+                            if (code.equals("101") || code.equals("150") || code.equals("153")
+                                    || code.equals("100") || code.equals("5")) {
+                                openYoutubeApp();
                             } else {
-                                showError("Este video no permite inserción (error " + code + ")");
+                                showError("Error YouTube " + code);
                             }
                             return;
                         }
@@ -149,6 +148,24 @@ public class YoutubeActivity extends Activity {
         ytError.setText(msg);
         ytError.setVisibility(View.VISIBLE);
         hint.setVisibility(View.GONE);
+    }
+
+    // Último recurso solo para los bloqueados: app oficial (siempre anda, con sonido).
+    private void openYoutubeApp() {
+        handler.removeCallbacksAndMessages(null);
+        try {
+            android.content.Intent i = new android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("vnd.youtube:" + videoId));
+            startActivity(i);
+        } catch (Exception e) {
+            try {
+                startActivity(new android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://www.youtube.com/watch?v=" + videoId)));
+            } catch (Exception ignored) {}
+        }
+        finish();
     }
 
     @Override
