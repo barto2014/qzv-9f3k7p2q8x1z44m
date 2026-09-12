@@ -58,6 +58,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashLog.init(getApplicationContext());
+        String prev = CrashLog.readPrevious(this);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -75,7 +77,13 @@ public class MainActivity extends Activity {
         adapter = new Adapter();
         list.setAdapter(adapter);
         clockHandler.post(clockTick);
-        load();
+        if (prev != null) {
+            // Mostrar el crash anterior para copiarlo. Tocar el texto reintenta.
+            status.setText("CRASH ANTERIOR (sacale foto y pasamelo):\n" + prev);
+            status.setOnClickListener(v -> load());
+        } else {
+            load();
+        }
     }
 
     @Override

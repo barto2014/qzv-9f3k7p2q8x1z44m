@@ -41,11 +41,11 @@ public final class DataRepository {
         if (order != null) {
             for (int i = 0; i < order.length(); i++) d.categoryOrder.add(order.optString(i));
         }
-        // Ordenar por categoryOrder como la web
+        // Ordenar por categoryOrder como la web (Collections para minSdk 21)
         if (!d.categoryOrder.isEmpty()) {
             final Map<String, Integer> pos = new LinkedHashMap<>();
             for (int i = 0; i < d.categoryOrder.size(); i++) pos.put(d.categoryOrder.get(i), i);
-            d.channels.sort((a, b) -> {
+            java.util.Collections.sort(d.channels, (a, b) -> {
                 int ia = pos.getOrDefault(a.category.toUpperCase(), 999);
                 int ib = pos.getOrDefault(b.category.toUpperCase(), 999);
                 if (ia != ib) return ia - ib;
