@@ -24,6 +24,7 @@ public class YoutubeActivity extends Activity {
     private TextView hint;
     private TextView ytError;
     private String videoId = "";
+    private boolean watchFallback = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable mutePoll = new Runnable() {
         @Override public void run() {
@@ -37,7 +38,16 @@ public class YoutubeActivity extends Activity {
                         if (web == null || state == null) return;
                         String t = state.replace("\"", "");
                         if (t.startsWith("err:")) {
-                            showError("Este video no permite inserción (error " + t.substring(4) + ")");
+                            String code = t.substring(4);
+                            // 101/150 = el dueño desactivó la inserción: ningún embed lo reproduce.
+                            // Se carga el watch móvil dentro de la app (sigue sin salir a otra app).
+                            if (!watchFallback && (code.equals("101") || code.equals("150"))) {
+                                watchFallback = true;
+                                web.loadUrl("https://m.youtube.com/watch?v=" + videoId + "&autoplay=1");
+                                handler.postDelayed(mutePoll, 4000);
+                            } else {
+                                showError("Este video no permite inserción (error " + code + ")");
+                            }
                             return;
                         }
                         if (t.startsWith("sonido")) {
