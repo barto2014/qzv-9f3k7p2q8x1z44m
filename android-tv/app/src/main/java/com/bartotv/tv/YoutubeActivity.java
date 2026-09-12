@@ -68,7 +68,7 @@ public class YoutubeActivity extends Activity {
         web.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null);
 
         // A los 9s: si no hay player o dio error, cargar el watch móvil DENTRO del WebView.
-        handler.postDelayed(() => {
+        handler.postDelayed(() -> {
             if (watchFallback || web == null) return;
             web.evaluateJavascript(
                     "(function(){try{if(typeof plErr!=='undefined'&&plErr)return 'err:'+plErr;"
