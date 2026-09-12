@@ -5,14 +5,16 @@ import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-// Usa el youtube.html original tal cual (assets), con ?source=VIDEO_ID.
-// El botón ⬅ de la página vuelve a la lista igual que Back del control.
+// YouTube desde tu web Vercel (el sistema que anda): mismo youtube.html probado.
+// Solo cambia el motor de MPD/HLS que sí es nativo ExoPlayer.
 public class YoutubeActivity extends Activity {
+
+    // Base de tu deploy Vercel actual (sin / final).
+    private static final String WEB_BASE = "https://nein-eight.vercel.app";
 
     private WebView web;
     private boolean firstPage = true;
@@ -30,7 +32,6 @@ public class YoutubeActivity extends Activity {
         if (videoId == null) videoId = "";
 
         web = findViewById(R.id.web);
-        // La página trae su propio hint/error; ocultar los overlays nativos.
         findViewById(R.id.hint).setVisibility(android.view.View.GONE);
         findViewById(R.id.yt_error).setVisibility(android.view.View.GONE);
 
@@ -54,39 +55,18 @@ public class YoutubeActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return false;
-            }
-
-            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // Ignorar la carga inicial (el WebView reporta la URL base al arrancar).
                 if (firstPage) { firstPage = false; return; }
-                // El ⬅ de la página navega al HOME: eso es "volver a la lista".
-                if (url != null && (url.equals("https://www.youtube.com/")
-                        || url.equals("https://www.youtube.com/youtube.html")
-                        || (url.startsWith("file:///android_asset/") && !url.contains("youtube.html")))) {
+                // El ⬅ de la página vuelve al index: eso es "volver a la lista".
+                if (url != null && (url.equals(WEB_BASE + "/") || url.equals(WEB_BASE)
+                        || url.endsWith("/index.html"))) {
                     finish();
                 }
             }
         });
         web.requestFocus();
-        // El MISMO youtube.html de assets pero servido con origen https.
-        // Por file:// YouTube responde 153 (origen inválido).
-        try {
-            java.io.InputStream in = getAssets().open("youtube.html");
-            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) != -1) bos.write(buf, 0, n);
-            in.close();
-            String html = new String(bos.toByteArray(), "UTF-8");
-            web.loadDataWithBaseURL("https://www.youtube.com/", html, "text/html", "utf-8",
-                    "https://www.youtube.com/youtube.html?source=" + videoId);
-        } catch (Exception e) {
-            finish();
-        }
+        web.loadUrl(WEB_BASE + "/youtube.html?source=" + videoId);
     }
 
     @Override
