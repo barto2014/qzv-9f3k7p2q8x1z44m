@@ -15,6 +15,7 @@ import android.webkit.WebViewClient;
 public class YoutubeActivity extends Activity {
 
     private WebView web;
+    private boolean firstPage = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,8 +61,11 @@ public class YoutubeActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                // Ignorar la carga inicial (el WebView reporta la URL base al arrancar).
+                if (firstPage) { firstPage = false; return; }
                 // El ⬅ de la página navega al HOME: eso es "volver a la lista".
                 if (url != null && (url.equals("https://www.youtube.com/")
+                        || url.equals("https://www.youtube.com/youtube.html")
                         || (url.startsWith("file:///android_asset/") && !url.contains("youtube.html")))) {
                     finish();
                 }
