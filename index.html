@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barto TV</title>
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0057b8">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="BartoTV">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.2/dist/mpegts.min.js"></script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --navy:       #07101f;
+            --navy2:      #0b1829;
+            --navy3:      #0f2040;
+            --blue:       #0057b8;
+            --blue-light: #1a7fe8;
+            --accent:     #00aaff;
+            --gold:       #ffc107;
+            --text:       #d4e0f0;
+            --text-dim:   #6a89a8;
+            --row-h:      64px;
+            --sidebar-w:  200px;
+            --topbar-h:   52px;
+            --infobar-h:  80px;
+        }
+
+        body {
+            background: var(--navy);
+            color: var(--text);
+            font-family: 'Barlow', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ─── TOP BAR ─── */
+        #top-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--topbar-h);
+            background: linear-gradient(to bottom, #000d1e, var(--navy));
+            border-bottom: 1px solid rgba(0,90,180,0.4);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 100;
+            gap: 20px;
+        }
+
+        #branding {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+        #brand-dot {
+            width: 10px; height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        #brand-name {
+            font-size: 1.2rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #fff;
+            text-transform: uppercase;
+        }
+        #brand-sub {
+            font-size: 0.6rem;
+            color: var(--accent);
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
+
+        #cat-tabs {
+            display: flex;
+            gap: 6px;
+            flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 0 10px;
+        }
+        #cat-tabs::-webkit-scrollbar { display: none; }
+
+        .cat-tab {
+            padding: 5px 16px;
+            border-radius: 3px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            border: 1px solid rgba(0,170,255,0.2);
+            background: rgba(0,40,80,0.5);
+            color: var(--text-dim);
+            white-space: nowrap;
+            transition: 0.15s;
+            outline: none;
+        }
+        .cat-tab:hover, .cat-tab:focus { border-color: var(--accent); color: var(--accent); }
+        .cat-tab.active { background: var(--blue); border-color: var(--blue-light); color: #fff; }
+
+        #clock-box {
+            text-align: right;
+            white-space: nowrap;
+        }
+        #clock-time {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 2px;
+        }
+        #clock-date {
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ─── MAIN LAYOUT ─── */
+        #gallery-view {
+            display: flex;
+            height: 100vh;
+            padding-top: var(--topbar-h);
+            padding-bottom: var(--infobar-h);
+        }
+
+        /* ─── GUIDE AREA ─── */
+        #guide-area {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--blue) transparent;
+        }
+        #guide-area::-webkit-scrollbar { width: 4px; }
+        #guide-area::-webkit-scrollbar-track { background: transparent; }
+        #guide-area::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 2px; }
+
+        #grid-content { padding: 8px 0; }
+
+        /* Category label inside guide */
+        .section-title {
+            padding: 10px 24px 6px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--accent);
+            background: linear-gradient(to right, rgba(0,90,180,0.15), transparent);
+            border-left: 3px solid var(--blue);
+            margin-top: 4px;
+        }
+
+        /* Channel row */
+        .channel-card {
+            display: flex;
+            align-items: center;
+            height: var(--row-h);
+            padding: 0 16px;
+            gap: 14px;
+            cursor: pointer;
+            outline: none;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            transition: background 0.1s;
+            position: relative;
+        }
+        .channel-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--accent);
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .channel-card:hover,
+        .channel-card:focus {
+            background: linear-gradient(to right, rgba(0,87,184,0.55), rgba(0,87,184,0.15));
+        }
+        .channel-card:hover::before,
+        .channel-card:focus::before { opacity: 1; }
+
+        .ch-num {
+            width: 36px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-dim);
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .ch-logo-wrap {
+            width: 44px; height: 38px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.4);
+            border-radius: 4px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .card-logo {
+            max-width: 40px;
+            max-height: 34px;
+            object-fit: contain;
+        }
+        .ch-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .card-name {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #cde0f5;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ch-sub {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .ch-type-badge {
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 2px 7px;
+            border-radius: 2px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .ch-type-badge.t-mpd  { background: rgba(0,87,184,0.5); color: #7bbfff; border: 1px solid rgba(0,87,184,0.7); }
+        .ch-type-badge.t-m3u8 { background: rgba(0,160,80,0.3); color: #6fefaa; border: 1px solid rgba(0,160,80,0.5); }
+        .ch-type-badge.t-flv  { background: rgba(200,80,0,0.3); color: #ffaa6f; border: 1px solid rgba(200,80,0,0.5); }
+        .ch-type-badge.t-youtube { background: rgba(180,0,0,0.3); color: #ff8080; border: 1px solid rgba(180,0,0,0.5); }
+        .ch-type-badge.t-web, .ch-type-badge.t-redirect, .ch-type-badge.t-externo
+                                { background: rgba(100,0,180,0.3); color: #cc99ff; border: 1px solid rgba(100,0,180,0.5); }
+
+        .ch-play-icon {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: rgba(0,170,255,0.15);
+            border: 1px solid rgba(0,170,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem;
+            color: var(--accent);
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .channel-card:hover .ch-play-icon,
+        .channel-card:focus .ch-play-icon { opacity: 1; }
+
+        /* ─── BOTTOM INFO BAR ─── */
+        #info-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: var(--infobar-h);
+            background: linear-gradient(to top, #000d1e 70%, transparent);
+            border-top: 1px solid rgba(0,90,180,0.3);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 20px;
+            z-index: 100;
+            backdrop-filter: blur(6px);
+        }
+        #info-logo-wrap {
+            width: 64px; height: 52px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0,90,180,0.4);
+            border-radius: 6px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        #current-logo {
+            max-width: 58px;
+            max-height: 46px;
+            object-fit: contain;
+        }
+        #info-text { flex: 1; min-width: 0; }
+        #current-category {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 3px;
+        }
+        #current-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #info-hint {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 8px 14px;
+            border: 1px solid rgba(0,170,255,0.3);
+            border-radius: 6px;
+            background: rgba(0,60,120,0.3);
+            white-space: nowrap;
+        }
+        #info-hint .hint-key {
+            font-size: 0.7rem;
+            color: var(--accent);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        #info-hint .hint-label {
+            font-size: 0.55rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ─── PLAYER VIEW ─── */
+        #player-view {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9999;
+        }
+        #player-ui-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 10001;
+            pointer-events: none;
+        }
+        .player-controls-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            pointer-events: auto;
+        }
+        .btn-back-mini {
+            background: rgba(0,10,25,0.85);
+            color: #fff;
+            border: 2px solid var(--accent);
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem;
+            transition: 0.2s;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0,0,0,0.6);
+        }
+        .btn-back-mini:focus,
+        .btn-back-mini:hover {
+            background: var(--blue);
+            color: #fff;
+            outline: none;
+            transform: scale(1.15);
+        }
+        .btn-back-mini:focus-visible {
+            outline: 3px solid var(--gold);
+            outline-offset: 2px;
+        }
+        video, iframe {
+            width: 100%; height: 100%;
+            border: none;
+            position: absolute;
+            inset: 0;
+        }
+        #bridge-loader {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+        }
+        .spinner-custom {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(0,170,255,0.15);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- ─── TOP BAR ─── -->
+    <div id="top-bar">
+        <div id="branding">
+            <div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <div id="brand-dot"></div>
+                    <span id="brand-name">Barto TV</span>
+                </div>
+                <div id="brand-sub">Premium Pro</div>
+            </div>
+        </div>
+
+        <div id="cat-tabs"></div>
+
+        <div id="clock-box">
+            <div id="clock-time">--:--</div>
+            <div id="clock-date">cargando...</div>
+        </div>
+    </div>
+
+    <!-- ─── GALLERY ─── -->
+    <div id="gallery-view">
+        <div id="guide-area">
+            <div id="grid-content"></div>
+        </div>
+    </div>
+
+    <!-- ─── BOTTOM INFO BAR ─── -->
+    <div id="info-bar">
+        <div id="info-logo-wrap">
+            <img id="current-logo" src="" alt="">
+        </div>
+        <div id="info-text">
+            <div id="current-category">BARTO TV</div>
+            <div id="current-name">Selecciona un canal</div>
+        </div>
+        <div id="info-hint">
+            <span class="hint-key">↵ ENTER</span>
+            <span class="hint-label">reproducir</span>
+        </div>
+        <div id="info-hint" style="margin-left:6px">
+            <span class="hint-key">ESC</span>
+            <span class="hint-label">volver</span>
+        </div>
+    </div>
+
+    <!-- ─── PLAYER VIEW ─── -->
+    <div id="player-view">
+        <div id="player-ui-overlay">
+            <div class="player-controls-bar">
+                <button id="main-back-btn" class="btn-back-mini" onclick="closePlayer()" title="Volver">⬅</button>
+            </div>
+        </div>
+        <div id="player-container" style="width:100%; height:100%;"></div>
+    </div>
+
+    <script>
+        // ─── RELOJ ───
+        function updateClock() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2,'0');
+            const mm = String(now.getMinutes()).padStart(2,'0');
+            document.getElementById('clock-time').textContent = `${hh}:${mm}`;
+            const dias = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+            const meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+            document.getElementById('clock-date').textContent =
+                `${dias[now.getDay()]} ${now.getDate()} ${meses[now.getMonth()]}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ─── FILTRO DE CATEGORÍA ACTIVA ───
+        let activeCategory = null;
+
+        function setActiveCategory(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('.cat-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.cat === cat);
+            });
+            // Mostrar/ocultar filas según categoría
+            document.querySelectorAll('.guide-section').forEach(sec => {
+                sec.style.display = (!cat || sec.dataset.cat === cat) ? '' : 'none';
+            });
+        }
+
+        // ─── SISTEMA ORIGINAL (sin tocar) ───
+
+        const YT_PLAYER_URL       = "youtube.html";
+        const MPD_PLAYER_URL      = "mpd.html";
+        const HLS_PLAYER_URL      = "hls.html";
+        const REDIRECT_PLAYER_URL = "redirect.html";
+
+        let state = { channels: [], categoryOrder: [], currentChannel: null };
+        let flvInstance = null;
+        let flvLatencyInterval = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            setInterval(loadData, 10000);
+        });
+
+        async function loadData() {
+            try {
+                const res = await fetch(`datar.bin?v=${Date.now()}`, { cache: 'no-store' });
+                const raw = await res.text();
+                const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
+                if (state.currentChannel) {
+                    const updatedVer = data.channels.find(c => c.id === state.currentChannel.id);
+                    if (updatedVer) {
+                        if (updatedVer.url !== state.currentChannel.url || updatedVer.type !== state.currentChannel.type) {
+                            openPlayer(updatedVer);
+                            return;
+                        }
+                    }
+                }
+                const nextChannels = data.channels || [];
+                const nextCategoryOrder = data.categoryOrder || [];
+                const channelsChanged = JSON.stringify(state.channels) !== JSON.stringify(nextChannels);
+                const categoryOrderChanged = JSON.stringify(state.categoryOrder) !== JSON.stringify(nextCategoryOrder);
+                const hasChanged = channelsChanged || categoryOrderChanged;
+                if (hasChanged) {
+                    state.channels = nextChannels;
+                    state.categoryOrder = nextCategoryOrder;
+                    if (document.getElementById('player-view').style.display !== "block") {
+                        renderUI();
+                    }
+                }
+            } catch (e) { console.error("Error en polling:", e); }
+        }
+
+        function renderUI() {
+            const container = document.getElementById('grid-content');
+            const tabsEl    = document.getElementById('cat-tabs');
+            container.innerHTML = "";
+            tabsEl.innerHTML = "";
+
+            const rawCategories = [...new Set(state.channels.map(c => c.category))];
+            const sortedCategories = rawCategories.sort((a, b) => {
+                const order = state.categoryOrder || [];
+                let indexA = order.indexOf(a.toUpperCase());
+                let indexB = order.indexOf(b.toUpperCase());
+                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+            });
+
+            // Tabs de categoría
+            const allTab = document.createElement('button');
+            allTab.className = 'cat-tab' + (!activeCategory ? ' active' : '');
+            allTab.textContent = 'TODOS';
+            allTab.dataset.cat = '';
+            allTab.onclick = () => setActiveCategory(null);
+            tabsEl.appendChild(allTab);
+
+            sortedCategories.forEach(cat => {
+                const tab = document.createElement('button');
+                tab.className = 'cat-tab' + (activeCategory === cat ? ' active' : '');
+                tab.textContent = cat;
+                tab.dataset.cat = cat;
+                tab.onclick = () => setActiveCategory(cat);
+                tabsEl.appendChild(tab);
+            });
+
+            // Filas de canales por categoría
+            let globalNum = 1;
+            sortedCategories.forEach(cat => {
+                const section = document.createElement('div');
+                section.className = 'guide-section';
+                section.dataset.cat = cat;
+                if (activeCategory && activeCategory !== cat) section.style.display = 'none';
+
+                const label = document.createElement('div');
+                label.className = 'section-title';
+                label.textContent = cat;
+                section.appendChild(label);
+
+                state.channels.filter(c => c.category === cat).forEach(c => {
+                    const isHls = c.type === 'm3u8' || c.type === 'externo' ||
+                        /\.m3u8(?:$|[?#])/i.test(c.url || '');
+                    const displayType = isHls ? 'm3u8' : (c.type || 'web');
+                    const typeClass = 't-' + displayType.toLowerCase().replace(/[^a-z0-9]/g,'');
+                    const typeLabel = isHls ? 'M3U8 / VLC' : displayType.toUpperCase();
+                    const num = String(globalNum).padStart(3, '0');
+                    globalNum++;
+
+                    const row = document.createElement('div');
+                    row.className = 'channel-card';
+                    row.tabIndex = 0;
+                    row.dataset.id = c.id;
+                    row.innerHTML = `
+                        <span class="ch-num">${num}</span>
+                        <div class="ch-logo-wrap">
+                            <img src="${c.logo}" class="card-logo" onerror="this.style.opacity='0'">
+                        </div>
+                        <div class="ch-info">
+                            <div class="card-name">${c.name}</div>
+                            <div class="ch-sub">${cat}</div>
+                        </div>
+                        <span class="ch-type-badge ${typeClass}">${typeLabel}</span>
+                        <div class="ch-play-icon">▶</div>
+                    `;
+                    row.onclick = () => openPlayerById(c.id);
+                    row.onfocus = () => updatePreviewById(c.id);
+                    section.appendChild(row);
+                });
+
+                container.appendChild(section);
+            });
+
+            // Restaurar último canal enfocado
+            const lastId = sessionStorage.getItem('lastChannelId');
+            if (lastId) {
+                const lastCard = document.querySelector(`[data-id="${lastId}"]`);
+                if (lastCard) {
+                    lastCard.focus();
+                    lastCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    updatePreviewById(lastId);
+                    return;
+                }
+            }
+            document.querySelector('.channel-card')?.focus();
+        }
+
+        function openPlayerById(id) {
+            const c = state.channels.find(ch => ch.id == id);
+            if(c) openPlayer(c);
+        }
+
+        function updatePreviewById(id) {
+            const c = state.channels.find(ch => ch.id == id);
+            if(c) {
+                document.getElementById('current-logo').src = c.logo;
+                document.getElementById('current-name').innerText = c.name;
+                document.getElementById('current-category').innerText = c.category;
+            }
+        }
+
+        async function openPlayer(c) {
+            await destroyAllPlayers();
+            state.currentChannel = c;
+            sessionStorage.setItem('lastChannelId', c.id);
+            document.getElementById('gallery-view').style.display = "none";
+            document.getElementById('top-bar').style.display = "none";
+            document.getElementById('info-bar').style.display = "none";
+            document.getElementById('player-view').style.display = "block";
+            const container = document.getElementById('player-container');
+            container.innerHTML = "";
+
+            const redirect = (playerUrl, params) => {
+                container.innerHTML = `<div id="bridge-loader"><div class="spinner-custom"></div><h3 style="font-family:Barlow,sans-serif;letter-spacing:3px;font-size:0.9rem">CONECTANDO...</h3></div>`;
+                const query = new URLSearchParams(params).toString();
+                setTimeout(() => { window.location.replace(`${playerUrl}?${query}`); }, 500);
+            };
+
+            const isHls = c.type === 'm3u8' || c.type === 'externo' ||
+                /\.m3u8(?:$|[?#])/i.test(c.url || '');
+            if (isHls) {
+                const params = { url: c.url, id: c.id };
+                if (c.ua) params.ua = c.ua;
+                if (c.referer) params.referer = c.referer;
+                if (c.headers && Object.keys(c.headers).length) params.headers = JSON.stringify(c.headers);
+                redirect(HLS_PLAYER_URL, params);
+                return;
+            }
+            if (c.type === 'youtube') {
+                const ytId = c.url.includes('v=') ? c.url.split('v=')[1].split('&')[0] : c.url.split('/').pop();
+                redirect(YT_PLAYER_URL, { source: ytId, id: c.id }); return;
+            }
+            if (c.type === 'mpd') {
+                const params = { url: c.url, id: c.id };
+                if (c.ua) params.ua = c.ua;
+                if (c.referer) params.referer = c.referer;
+                if (c.headers && Object.keys(c.headers).length) params.headers = JSON.stringify(c.headers);
+                if (c.drm_server) {
+                    params.license = c.drm_server;
+                } else if (c.drm_keys && Object.keys(c.drm_keys).length) {
+                    params.keys = JSON.stringify(c.drm_keys);
+                }
+                redirect(MPD_PLAYER_URL, params); return;
+            }
+            if (c.type === 'flv') {
+                const v = document.createElement('video');
+                v.autoplay = true; v.controls = true;
+                v.style.width = "100%"; v.style.height = "100%";
+                container.appendChild(v);
+                if (mpegts.isSupported()) {
+                    flvInstance = mpegts.createPlayer({
+                        type: 'flv', url: c.url, isLive: true,
+                        hasAudio: true, hasVideo: true
+                    }, {
+                        enableStashBuffer: true,
+                        stashInitialSize: 3072,
+                        fixAudioTimestamp: true,
+                        autoCleanupSourceBuffer: true,
+                        autoCleanupMaxBackwardDuration: 30,
+                        autoCleanupMinBackwardDuration: 10,
+                        liveBufferLatencyChasing: false
+                    });
+                    flvInstance.attachMediaElement(v);
+                    flvInstance.load();
+                    v.muted = false;
+                    v.play().catch(() => {
+                        v.muted = true;
+                        v.play().catch(() => {});
+                    });
+
+                    let isReconnecting = false;
+                    function reconnectFlv() {
+                        if (isReconnecting) return;
+                        isReconnecting = true;
+                        try { flvInstance.unload(); flvInstance.load(); v.play().catch(() => {}); } catch(e) {}
+                        setTimeout(() => { isReconnecting = false; }, 4000);
+                    }
+
+                    let waitingTimer = null;
+                    v.addEventListener('waiting', () => {
+                        clearTimeout(waitingTimer);
+                        waitingTimer = setTimeout(() => {
+                            if (v.readyState < 3 && !v.paused) reconnectFlv();
+                        }, 7000);
+                    });
+                    v.addEventListener('playing', () => clearTimeout(waitingTimer));
+
+                    let flvStallTimer = null;
+                    let flvLastTime = 0;
+                    v.addEventListener('timeupdate', () => {
+                        clearTimeout(flvStallTimer);
+                        flvLastTime = v.currentTime;
+                        flvStallTimer = setTimeout(() => {
+                            if (!v.paused && v.currentTime === flvLastTime) reconnectFlv();
+                        }, 8000);
+                    });
+
+                    v.addEventListener('error', () => {
+                        setTimeout(() => reconnectFlv(), 1000);
+                    });
+
+                    flvInstance.on(mpegts.Events.ERROR, () => {
+                        setTimeout(() => { try { reconnectFlv(); } catch(e) {} }, 1500);
+                    });
+                }
+                setTimeout(() => document.getElementById('main-back-btn').focus(), 500);
+                return;
+            }
+            if (c.type === 'redirect') { redirect(REDIRECT_PLAYER_URL, { url: c.url }); return; }
+            if (c.type === 'web') {
+                const finalUrl = c.url + (c.url.includes('?') ? '&' : '?') + "autoplay=1&mute=0&sound=1";
+                const iframe = document.createElement('iframe');
+                iframe.src = finalUrl;
+                iframe.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture";
+                iframe.allowFullscreen = true;
+                iframe.setAttribute('allowpaymentrequest', '');
+                iframe.tabIndex = -1;
+                container.appendChild(iframe);
+
+                const backBtn = document.getElementById('main-back-btn');
+                iframe.addEventListener('load', () => setTimeout(() => backBtn.focus(), 150));
+
+                function keepFocusOnBack() {
+                    if (document.getElementById('player-view').style.display === 'block') {
+                        setTimeout(() => backBtn.focus(), 50);
+                    }
+                }
+                window.addEventListener('blur', keepFocusOnBack);
+                container._iframeFocusCleanup = () => window.removeEventListener('blur', keepFocusOnBack);
+                setTimeout(() => backBtn.focus(), 500);
+            }
+        }
+
+        async function destroyAllPlayers() {
+            if (flvLatencyInterval) {
+                clearInterval(flvLatencyInterval);
+                flvLatencyInterval = null;
+            }
+            if (flvInstance) {
+                try { flvInstance.pause(); flvInstance.unload(); flvInstance.detachMediaElement(); flvInstance.destroy(); } catch(e) {}
+                flvInstance = null;
+            }
+        }
+
+        async function closePlayer() {
+            const container = document.getElementById('player-container');
+            if (container._iframeFocusCleanup) {
+                container._iframeFocusCleanup();
+                container._iframeFocusCleanup = null;
+            }
+            await destroyAllPlayers();
+            container.innerHTML = "";
+            document.getElementById('player-view').style.display = "none";
+            document.getElementById('gallery-view').style.display = "flex";
+            document.getElementById('top-bar').style.display = "flex";
+            document.getElementById('info-bar').style.display = "flex";
+            if (state.currentChannel) renderUI();
+            state.currentChannel = null;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === "Backspace" || e.key === "Escape") {
+                if(document.getElementById('player-view').style.display === "block") {
+                    e.preventDefault();
+                    closePlayer();
+                }
+            }
+        });
+
+        // Registro del Service Worker (PWA)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>

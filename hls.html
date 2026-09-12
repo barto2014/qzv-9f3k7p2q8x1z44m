@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Barto TV - VLC HLS Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { background: #000; width: 100%; height: 100%; overflow: hidden; }
+        video { width: 100%; height: 100%; display: block; }
+        .back-btn:focus { outline: 3px solid #ffc107; outline-offset: 2px; transform: scale(1.2); background: rgba(255,193,7,0.3); }
+        .back-btn {
+            position: fixed; bottom: 12px; left: 12px; z-index: 1000;
+            background: rgba(0,0,0,0.7); color: #fff; width: 50px; height: 50px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            text-decoration: none; border: 2px solid #ffc107; font-size: 1.3rem;
+        }
+        #error-msg {
+            display: none; position: absolute; inset: 0;
+            align-items: center; justify-content: center; flex-direction: column;
+            color: #ffc107; font-family: sans-serif; gap: 12px;
+        }
+        #error-msg.show { display: flex; }
+        #error-detail { color: #999; font-size: .8rem; max-width: 80%; text-align: center; word-break: break-word; }
+        #status-msg {
+            position: fixed; bottom: 12px; right: 12px; z-index: 1000;
+            color: #666; font-family: sans-serif; font-size: 0.7rem;
+            background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <script> const HOME_URL = new URL('./', window.location.href).href; </script>
+
+    <button id="back-btn" class="back-btn" autofocus aria-label="Volver a la lista de canales">⬅</button>
+    <video id="video" autoplay controls playsinline></video>
+    <div id="error-msg"><span style="font-size:2rem">⚠️</span><span>Error al cargar la señal</span><span id="error-detail"></span><button id="retry-btn" style="margin-top:10px;background:#ffc107;border:none;padding:10px 24px;border-radius:6px;font-weight:800;cursor:pointer">REINTENTAR</button></div>
+    <div id="status-msg"></div>
+
+    <script>
+        document.getElementById('back-btn').onclick = () => window.location.replace(HOME_URL);
+
+        const params   = new URLSearchParams(window.location.search);
+        let currentUrl = params.get('url');
+        const chanId   = params.get('id');
+        let userAgent = params.get('ua') || '';
+        let referer = params.get('referer') || '';
+        let extraHeaders = params.get('headers') || '';
+
+        let hlsInstance = null;
+        let triedFallback = false;
+
+        function proxyUrl(url) {
+            const proxyParams = new URLSearchParams({ url });
+            if (userAgent) proxyParams.set('ua', userAgent);
+            if (referer) proxyParams.set('referer', referer);
+            if (extraHeaders) proxyParams.set('headers', extraHeaders);
+            return `/api/stream?${proxyParams.toString()}`;
+        }
+
+        function setStatus(t) { document.getElementById('status-msg').textContent = t || ''; }
+
+        function showError(message = '') {
+            document.getElementById('error-detail').textContent = message;
+            document.getElementById('error-msg').classList.add('show');
+            setStatus('error');
+        }
+
+        function buildCandidates(url) {
+            const needsProxyForHeaders = !!(userAgent || referer || extraHeaders);
+            const isHttpStream = /^http:\/\//i.test(url);
+            const isHttpsPage = location.protocol === 'https:';
+            if (needsProxyForHeaders || (isHttpStream && isHttpsPage)) {
+                return [{ url: proxyUrl(url), mode: 'proxy' }, { url, mode: 'directa' }];
+            }
+            return [{ url, mode: 'directa' }, { url: proxyUrl(url), mode: 'proxy' }];
+        }
+
+        function destroyHls() {
+            if (hlsInstance) { try { hlsInstance.destroy(); } catch(e) {} hlsInstance = null; }
+        }
+
+        function startHls(url) {
+            const video = document.getElementById('video');
+            destroyHls();
+            triedFallback = false;
+            document.getElementById('error-msg').classList.remove('show');
+            video.removeAttribute('src');
+            video.load();
+            tryCandidate(video, buildCandidates(url), 0);
+        }
+
+        function tryCandidate(video, candidates, idx) {
+            if (idx >= candidates.length) {
+                showError('No se pudo cargar. Probá en VLC para verificar la fuente.');
+                return;
+            }
+            const cand = candidates[idx];
+            setStatus(cand.mode === 'proxy' ? 'vía proxy…' : 'directa…');
+
+            if (Hls.isSupported()) {
+                destroyHls();
+                hlsInstance = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 30,
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                    liveSyncDurationCount: 3,
+                    liveMaxLatencyCount: 10,
+                    manifestLoadingMaxRetry: 5,
+                    levelLoadingMaxRetry: 5,
+                    fragLoadingMaxRetry: 5,
+                    manifestLoadingRetryDelay: 1000,
+                    levelLoadingRetryDelay: 1000,
+                    fragLoadingRetryDelay: 1000
+                });
+                let gotManifest = false;
+                const timeout = setTimeout(() => {
+                    if (!gotManifest) {
+                        destroyHls();
+                        tryCandidate(video, candidates, idx + 1);
+                    }
+                }, 14000);
+
+                hlsInstance.loadSource(cand.url);
+                hlsInstance.attachMedia(video);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                    gotManifest = true;
+                    clearTimeout(timeout);
+                    setStatus(cand.mode === 'proxy' ? 'vía proxy' : 'directa');
+                    video.play().catch(() => { video.muted = true; video.play().catch(()=>{}); });
+                });
+                hlsInstance.on(Hls.Events.ERROR, (e, data) => {
+                    if (!data.fatal) return;
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !triedFallback) {
+                        triedFallback = true;
+                        clearTimeout(timeout);
+                        destroyHls();
+                        tryCandidate(video, candidates, idx + 1);
+                        return;
+                    }
+                    if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        try { hlsInstance.recoverMediaError(); } catch(err) {}
+                        return;
+                    }
+                    clearTimeout(timeout);
+                    if (idx + 1 < candidates.length) {
+                        destroyHls();
+                        tryCandidate(video, candidates, idx + 1);
+                    } else {
+                        showError(data.details || 'Error fatal del reproductor');
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = cand.url;
+                setStatus(cand.mode === 'proxy' ? 'vía proxy' : 'directa');
+                video.play().catch(() => { video.muted = true; video.play().catch(()=>{}); });
+                video.onerror = () => {
+                    if (idx + 1 < candidates.length) tryCandidate(video, candidates, idx + 1);
+                    else showError('Este dispositivo no pudo cargar la señal.');
+                };
+            } else {
+                showError('Este dispositivo no soporta reproducción HLS.');
+            }
+        }
+
+        document.getElementById('retry-btn').onclick = () => { if (currentUrl) startHls(currentUrl); };
+
+        async function pollChanges() {
+            if (!chanId) return;
+            try {
+                const res = await fetch(`datar.bin?v=${Date.now()}`, { cache: 'no-store' });
+                const raw = await res.text();
+                const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
+                const canal = data.channels.find(c => c.id == chanId);
+                if (canal && (
+                    canal.url !== currentUrl ||
+                    (canal.ua || '') !== userAgent ||
+                    (canal.referer || '') !== referer ||
+                    JSON.stringify(canal.headers || {}) !== (extraHeaders ? extraHeaders : '{}')
+                )) {
+                    currentUrl = canal.url;
+                    userAgent = canal.ua || '';
+                    referer = canal.referer || '';
+                    extraHeaders = canal.headers && Object.keys(canal.headers).length
+                        ? JSON.stringify(canal.headers)
+                        : '';
+                    startHls(currentUrl);
+                }
+            } catch(e) {}
+        }
+
+        if (currentUrl) {
+            startHls(currentUrl);
+            setInterval(pollChanges, 10000);
+        } else {
+            showError('No se recibió una URL M3U8.');
+        }
+
+        window.addEventListener('load', () => {
+            setTimeout(() => document.getElementById('back-btn').focus(), 500);
+        });
+    </script>
+</body>
+</html>

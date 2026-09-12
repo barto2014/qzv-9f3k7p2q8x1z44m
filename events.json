@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "timezone": "America/Montevideo",
+  "events": [
+    {
+      "id": "demo-1",
+      "date": "2026-08-28",
+      "startTime": "19:30",
+      "endTime": "21:30",
+      "title": "Noche de fútbol",
+      "competition": "Agenda deportiva",
+      "channelId": 1772145506826,
+      "channelName": "ESPN 1",
+      "isExample": true
+    },
+    {
+      "id": "demo-2",
+      "date": "2026-08-29",
+      "startTime": "20:00",
+      "endTime": "22:00",
+      "title": "Partido destacado",
+      "competition": "Agenda deportiva",
+      "channelId": 1772145529378,
+      "channelName": "ESPN 2",
+      "isExample": true
+    },
+    {
+      "id": "demo-3",
+      "date": "2026-08-30",
+      "startTime": "18:00",
+      "endTime": "20:00",
+      "title": "Fútbol uruguayo",
+      "competition": "Agenda deportiva",
+      "channelId": 1772145696410,
+      "channelName": "VTV PLUS",
+      "isExample": true
+    }
+  ]
+}

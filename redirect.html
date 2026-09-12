@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="referrer" content="no-referrer">
+    <title>Barto TV - Web Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { background: #000; width: 100%; height: 100%; overflow: hidden; }
+        iframe { width: 100%; height: 100%; border: none; display: block; }
+        .back-btn {
+            position: fixed; bottom: 12px; left: 12px; z-index: 9999;
+            background: rgba(0,0,0,0.7); color: #fff; border: 2px solid #ffc107;
+            width: 50px; height: 50px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 20px; transition: 0.2s; outline: none; opacity: 0.6; cursor: pointer;
+        }
+        .back-btn:focus, .back-btn:hover { opacity: 1; transform: scale(1.2); background: #ffc107; color: #000; }
+        .back-btn:focus { outline: 3px solid #fff; outline-offset: 2px; }
+        #blocked-msg {
+            display: none; position: fixed; inset: 0;
+            flex-direction: column; align-items: center; justify-content: center;
+            background: #000; color: #ffc107; gap: 16px; font-family: sans-serif; text-align: center; padding: 20px;
+        }
+        #blocked-msg h2 { font-size: 1.4rem; }
+        #blocked-msg p { font-size: 0.9rem; color: #888; }
+        #open-btn {
+            background: #ffc107; color: #000; border: none; padding: 12px 28px;
+            border-radius: 8px; font-size: 1rem; font-weight: 800; cursor: pointer; margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <script> const HOME_URL = new URL('./', window.location.href).href; </script>
+
+    <button class="back-btn" id="back-btn" autofocus aria-label="Volver a la lista de canales"><i class="fas fa-arrow-left"></i></button>
+    <iframe id="frame" allowfullscreen allow="autoplay; fullscreen; encrypted-media"></iframe>
+
+    <div id="blocked-msg">
+        <h2>⚠️ Esta web no permite iframe</h2>
+        <p>La web bloqueó la visualización en iframe.<br>Podés abrirla directamente.</p>
+        <button id="open-btn">ABRIR EN NUEVA PESTAÑA</button>
+    </div>
+
+    <script>
+        document.getElementById('back-btn').onclick = () => window.location.replace(HOME_URL);
+
+        const params = new URLSearchParams(window.location.search);
+        const url = params.get('url');
+        const frame = document.getElementById('frame');
+
+        if (url) {
+            frame.src = url;
+
+            // Si el iframe falla (bloqueado por X-Frame-Options), mostrar mensaje
+            frame.onerror = () => showBlocked();
+
+            // Detectar si fue bloqueado después de cargar
+            setTimeout(() => {
+                try {
+                    if (!frame.contentDocument && !frame.contentWindow?.location?.href) {
+                        showBlocked();
+                    }
+                } catch(e) {
+                    // Cross-origin pero cargó — está bien
+                }
+            }, 3000);
+        }
+
+        function showBlocked() {
+            frame.style.display = 'none';
+            document.getElementById('blocked-msg').style.display = 'flex';
+            document.getElementById('open-btn').onclick = () => window.open(url, '_blank');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (["Escape", "Backspace"].includes(e.key)) window.location.replace(HOME_URL);
+        });
+
+        window.onload = () => { document.getElementById('back-btn').focus(); };
+    </script>
+</body>
+</html>

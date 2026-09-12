@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barto TV - Master Admin PRO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --accent: #ffc107; --bg: #0d1117; --card: #161b22; --border: #30363d; --danger: #f85149; --bridge: #00d4ff; --headers: #8b5cf6; }
+        body { background: var(--bg); color: #c9d1d9; font-family: 'Segoe UI', sans-serif; }
+        .admin-sidebar { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: sticky; top: 20px; }
+        .form-label { color: var(--accent); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-top: 10px; }
+        .label-header { color: var(--headers) !important; }
+        .form-control, .form-select { background: #010409; border: 1px solid var(--border); color: white; border-radius: 6px; }
+        .form-control:focus { border-color: var(--accent); box-shadow: none; background: #010409; color: white; }
+        
+        .priority-box { background: rgba(255, 193, 7, 0.05); border: 1px dashed var(--accent); padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        .header-box { border-left: 3px solid var(--headers); padding-left: 10px; margin-top: 15px; background: rgba(139, 92, 246, 0.05); padding-bottom: 10px; border-radius: 0 8px 8px 0; }
+
+        .search-box { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        .channel-item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; transition: 0.2s; }
+        .channel-item:hover { border-color: var(--accent); }
+        .chan-img { width: 45px; height: 45px; object-fit: contain; background: #000; border-radius: 4px; }
+        .btn-gh { background: var(--accent); color: #000; font-weight: 800; border: none; width: 100%; padding: 12px; margin-top: 15px; }
+        .status-badge { font-size: 0.7rem; padding: 5px 12px; border-radius: 20px; font-weight: bold; }
+        .badge-type { background: #21262d; color: var(--accent); border: 1px solid var(--border); font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; }
+        
+        .btn-view { color: var(--bridge); border-color: var(--bridge); }
+        .btn-view:hover { background: var(--bridge); color: black; }
+        
+        /* Modal Style para ver enlace */
+        .modal-content { background: var(--card); border: 1px solid var(--border); color: white; }
+        .url-display { background: #000; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; font-size: 0.9rem; border: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid p-4">
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="admin-sidebar shadow">
+                <h5 class="text-white mb-3" id="form-title"><i class="fa-solid fa-plus text-warning me-2"></i> AGREGAR SEÑAL</h5>
+                <hr class="border-secondary">
+                
+                <input type="hidden" id="edit-index" value="-1">
+                <label class="form-label">Nombre del Canal</label>
+                <input type="text" id="name" class="form-control">
+
+                <div class="row">
+                    <div class="col-6">
+                        <label class="form-label">Tipo</label>
+                        <select id="type" class="form-select">
+                            <option value="mpd">MPD (DASH)</option>
+                            <option value="m3u8">M3U8 / HTTP / HTTPS (VLC)</option>
+                            <option value="flv">FLV</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="web">Web Iframe</option>
+                            <option value="redirect">🌐 WEB DIRECTA</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Categoría</label>
+                        <input type="text" id="category" class="form-control" placeholder="Ej: CINE">
+                    </div>
+                </div>
+
+                <label class="form-label">URL del Stream</label>
+                <input type="text" id="url" class="form-control">
+
+                <label class="form-label" style="color:#00d4ff">🔑 Llaves DRM (formato KID:KEY)</label>
+                <textarea id="drm_keys" class="form-control" rows="3" placeholder="Una por línea:&#10;abc123...:def456...&#10;111aaa...:222bbb..." style="font-family:monospace;font-size:0.78rem;resize:vertical"></textarea>
+                <small class="text-muted" style="font-size:0.7rem">Ingresá cada llave en formato <code style="color:#00d4ff">KID:KEY</code> (hex), una por línea. Son tus llaves propias.</small>
+
+                <div class="header-box">
+                    <label class="form-label label-header">User-Agent</label>
+                    <input type="text" id="ua" class="form-control form-control-sm">
+                    <label class="form-label label-header">Referer</label>
+                    <input type="text" id="referer" class="form-control form-control-sm">
+                    <label class="form-label label-header">Headers adicionales</label>
+                    <textarea id="headers" class="form-control form-control-sm" rows="3" placeholder="Authorization: Bearer ...&#10;X-Forwarded-For: ..."></textarea>
+                    <small class="text-muted" style="font-size:0.68rem">Uno por línea: <code style="color:#00d4ff">Nombre: valor</code>. Se aplican desde el proxy del servidor.</small>
+                </div>
+
+                <label class="form-label">URL Logo</label>
+                <input type="text" id="logo" class="form-control">
+
+                <button class="btn btn-gh" id="btn-save" onclick="saveChannel()">SUBIR A LA NUBE</button>
+                <button class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="resetForm()">CANCELAR</button>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="text-white m-0">Canales Configurados</h4>
+                <div id="status-conn" class="status-badge bg-danger text-white">Iniciando...</div>
+            </div>
+
+            <div class="priority-box">
+                <label class="form-label mt-0"><i class="fa-solid fa-list-ol me-2"></i> Prioridad de Categorías</label>
+                <div class="input-group">
+                    <input type="text" id="categoryOrder" class="form-control" placeholder="DEPORTES, CINE, URUGUAY">
+                    <button class="btn btn-warning" onclick="saveGlobalOrder()"><i class="fa-solid fa-save"></i></button>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" class="form-control" placeholder="Buscar..." onkeyup="filterChannels()">
+            </div>
+
+            <div id="channel-list"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-warning">Enlace de Prueba</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Usa este enlace para probar directamente en tu navegador:</p>
+                <div id="urlText" class="url-display mb-3"></div>
+                <button class="btn btn-warning w-100" onclick="copyUrl()">COPIAR ENLACE</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const CONFIG = {
+        owner: 'barto2014',
+        repo: 'nein',
+        path: 'datar.bin',
+        apiBase: '/api/github'
+    };
+
+    let channels = [];
+    let categoryOrder = [];
+    let currentSha = "";
+
+    function utoa(str) { return window.btoa(unescape(encodeURIComponent(str))); }
+    function atou(str) { return decodeURIComponent(escape(window.atob(str))); }
+
+    function githubApiUrl(path) {
+        return `${CONFIG.apiBase}?path=${encodeURIComponent(path)}`;
+    }
+
+    async function loadData() {
+        try {
+            const githubPath = `repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
+            const res = await fetch(githubApiUrl(githubPath), { cache: 'no-store' });
+            if (!res.ok) throw new Error(`GitHub respondió ${res.status}`);
+            const data = await res.json();
+            currentSha = data.sha;
+            const b64file = atou(data.content);
+            const jsonStr = decodeURIComponent(escape(window.atob(b64file)));
+            const content = JSON.parse(jsonStr);
+            channels = content.channels || [];
+            categoryOrder = content.categoryOrder || [];
+            document.getElementById('categoryOrder').value = categoryOrder.join(', ');
+            document.getElementById('status-conn').innerText = "Sincronizado";
+            document.getElementById('status-conn').classList.replace('bg-danger', 'bg-success');
+            renderChannels(channels);
+        } catch (e) { console.error(e); }
+    }
+
+    function renderChannels(listToRender) {
+        const listContainer = document.getElementById('channel-list');
+        listContainer.innerHTML = [...listToRender].reverse().map((c) => {
+            const realIdx = channels.indexOf(c);
+            const typeLabel = isHlsChannel(c) ? 'M3U8 / VLC' : (c.type || 'WEB').toUpperCase();
+            return `
+            <div class="channel-item d-flex align-items-center">
+                <img src="${escapeHtml(c.logo || '')}" class="chan-img me-3" alt="">
+                <div class="flex-grow-1">
+                    <h6 class="mb-0 text-white">${escapeHtml(c.name || '')}</h6>
+                    <span class="badge badge-type">${typeLabel}</span>
+                    <small class="text-muted ms-2">${escapeHtml(c.category || '')}</small>
+                </div>
+                <button class="btn btn-sm btn-outline-info me-2 btn-view" onclick="showUrl(${realIdx})"><i class="fa-solid fa-eye"></i></button>
+                <button class="btn btn-sm btn-outline-warning me-2" onclick="editChannel(${realIdx})"><i class="fa-solid fa-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteChannel(${realIdx})"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `}).join('');
+    }
+    const HOME_URL = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/')}`;
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[char]));
+    }
+
+    function isHlsChannel(channel) {
+        return channel?.type === 'm3u8' ||
+            channel?.type === 'externo' ||
+            /\.m3u8(?:$|[?#])/i.test(channel?.url || '');
+    }
+
+    function normalizeChannelForStorage(channel) {
+        const clean = { ...channel };
+        if (isHlsChannel(clean)) clean.type = 'm3u8';
+        delete clean.epg_id;
+        return clean;
+    }
+
+    // FUNCIÓN PARA VER Y GENERAR EL ENLACE DE PRUEBA
+    function showUrl(idx) {
+        const c = channels[idx];
+        let finalUrl = "";
+
+        if (c.type === 'mpd') {
+            const params = new URLSearchParams({ url: c.url });
+            setPlayerHeaders(params, c);
+            if (c.drm_keys && Object.keys(c.drm_keys).length) {
+                params.set('keys', JSON.stringify(c.drm_keys));
+            }
+            finalUrl = `${HOME_URL}mpd.html?${params.toString()}`;
+        } else if (isHlsChannel(c)) {
+            const params = new URLSearchParams({ url: c.url, id: c.id });
+            setPlayerHeaders(params, c);
+            finalUrl = `${HOME_URL}hls.html?${params.toString()}`;
+        } else if (c.type === 'flv') {
+            finalUrl = c.url; // FLV se reproduce inline en el index
+        } else if (c.type === 'youtube') {
+            const ytId = c.url.includes('v=') ? c.url.split('v=')[1].split('&')[0] : c.url.split('/').pop();
+            finalUrl = `${HOME_URL}youtube.html?source=${ytId}`;
+        } else if (c.type === 'redirect') {
+            finalUrl = `${HOME_URL}redirect.html?url=${encodeURIComponent(c.url)}`;
+        } else {
+            finalUrl = c.url;
+        }
+
+        document.getElementById('urlText').innerText = finalUrl;
+        new bootstrap.Modal(document.getElementById('viewModal')).show();
+    }
+
+    function copyUrl() {
+        const text = document.getElementById('urlText').innerText;
+        navigator.clipboard.writeText(text);
+        alert("Enlace copiado al portapapeles");
+    }
+
+    async function saveGlobalOrder() {
+        const input = document.getElementById('categoryOrder').value;
+        categoryOrder = input.split(',').map(s => s.trim().toUpperCase()).filter(s => s !== "");
+        await syncGitHub("Orden de categorías actualizado");
+    }
+
+    function parseDrmKeys(text) {
+        if (!text || !text.trim()) return undefined;
+        const result = {};
+        text.trim().split('\n').forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx === -1) return;
+            const kid = line.substring(0, colonIdx).trim().toLowerCase();
+            const key = line.substring(colonIdx + 1).trim().toLowerCase();
+            if (kid && key) result[kid] = key;
+        });
+        return Object.keys(result).length ? result : undefined;
+    }
+
+    function drmKeysToText(drmKeys) {
+        if (!drmKeys || typeof drmKeys !== 'object') return '';
+        return Object.entries(drmKeys).map(([kid, key]) => `${kid}:${key}`).join('\n');
+    }
+
+    function parseHeaders(text) {
+        if (!text || !text.trim()) return undefined;
+        const result = {};
+        text.split('\n').forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx <= 0) return;
+            const name = line.substring(0, colonIdx).trim();
+            const value = line.substring(colonIdx + 1).trim();
+            if (/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name) && value) result[name] = value;
+        });
+        return Object.keys(result).length ? result : undefined;
+    }
+
+    function headersToText(headers) {
+        if (!headers || typeof headers !== 'object') return '';
+        return Object.entries(headers).map(([name, value]) => `${name}: ${value}`).join('\n');
+    }
+
+    function setPlayerHeaders(params, channel) {
+        if (channel.ua) params.set('ua', channel.ua);
+        if (channel.referer) params.set('referer', channel.referer);
+        if (channel.headers && Object.keys(channel.headers).length) {
+            params.set('headers', JSON.stringify(channel.headers));
+        }
+    }
+
+    async function saveChannel() {
+        const idx = parseInt(document.getElementById('edit-index').value);
+        const drmKeys = parseDrmKeys(document.getElementById('drm_keys').value);
+        const headers = parseHeaders(document.getElementById('headers').value);
+        const newChan = {
+            id: idx === -1 ? Date.now() : channels[idx].id,
+            name: document.getElementById('name').value,
+            url: document.getElementById('url').value,
+            type: document.getElementById('type').value,
+            category: (document.getElementById('category').value || "GENERAL").toUpperCase(),
+            logo: document.getElementById('logo').value,
+            ua: document.getElementById('ua').value,
+            referer: document.getElementById('referer').value,
+            headers,
+            drm_keys: drmKeys
+        };
+        if (idx === -1) channels.push(newChan); else channels[idx] = newChan;
+        await syncGitHub(`Guardado: ${newChan.name}`);
+        resetForm();
+    }
+
+    async function syncGitHub(msg) {
+        document.getElementById('status-conn').innerText = "Guardando...";
+        const cleanChannels = channels.map(normalizeChannelForStorage);
+        const jsonStr = JSON.stringify({ channels: cleanChannels, categoryOrder }, null, 2);
+        const b64content = window.btoa(unescape(encodeURIComponent(jsonStr)));
+        const body = {
+            message: msg,
+            content: utoa(b64content),
+            sha: currentSha
+        };
+        const githubPath = `repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
+        const res = await fetch(githubApiUrl(githubPath), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(`GitHub respondió ${res.status}`);
+        alert("Sincronizado!");
+        loadData();
+    }
+
+    function editChannel(index) {
+        const c = channels[index];
+        document.getElementById('edit-index').value = index;
+        document.getElementById('name').value = c.name;
+        document.getElementById('url').value = c.url;
+        document.getElementById('type').value = isHlsChannel(c) ? 'm3u8' : c.type;
+        document.getElementById('category').value = c.category;
+        document.getElementById('logo').value = c.logo;
+        document.getElementById('ua').value = c.ua || "";
+        document.getElementById('referer').value = c.referer || "";
+        document.getElementById('headers').value = headersToText(c.headers || null);
+        document.getElementById('drm_keys').value = drmKeysToText(c.drm_keys || null);
+        window.scrollTo(0,0);
+    }
+
+    function resetForm() {
+        document.getElementById('edit-index').value = "-1";
+        document.getElementById('name').value = "";
+        document.getElementById('url').value = "";
+        document.getElementById('ua').value = "";
+        document.getElementById('referer').value = "";
+        document.getElementById('headers').value = "";
+        document.getElementById('drm_keys').value = "";
+        loadData();
+    }
+
+    function filterChannels() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        renderChannels(channels.filter(c => c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)));
+    }
+
+    async function deleteChannel(idx) {
+        if(confirm("¿Eliminar?")) { channels.splice(idx,1); await syncGitHub("Eliminado"); }
+    }
+
+    loadData();
+</script>
+</body>
+</html>
