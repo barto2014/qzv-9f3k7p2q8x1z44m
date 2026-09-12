@@ -146,12 +146,11 @@ public class MainActivity extends Activity {
             buildCategories();
             rebuildVisible();
         });
+        // Solo efecto visual al enfocar: NUNCA reconstruir acá.
+        // Antes se filtraba en onFocus y al moverte destruía la vista con foco = crash.
         t.setOnFocusChangeListener((v, f) -> {
-            if (f) {
-                activeCategory = cat;
-                buildCategories();
-                rebuildVisible();
-            }
+            v.setScaleX(f ? 1.1f : 1f);
+            v.setScaleY(f ? 1.1f : 1f);
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
