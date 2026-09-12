@@ -60,15 +60,29 @@ public class YoutubeActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // El ⬅ de la página navega al HOME local: eso es "volver a la lista".
-                if (url != null && url.startsWith("file:///android_asset/")
-                        && !url.contains("youtube.html")) {
+                // El ⬅ de la página navega al HOME: eso es "volver a la lista".
+                if (url != null && (url.equals("https://www.youtube.com/")
+                        || (url.startsWith("file:///android_asset/") && !url.contains("youtube.html")))) {
                     finish();
                 }
             }
         });
         web.requestFocus();
-        web.loadUrl("file:///android_asset/youtube.html?source=" + videoId);
+        // El MISMO youtube.html de assets pero servido con origen https.
+        // Por file:// YouTube responde 153 (origen inválido).
+        try {
+            java.io.InputStream in = getAssets().open("youtube.html");
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) bos.write(buf, 0, n);
+            in.close();
+            String html = new String(bos.toByteArray(), "UTF-8");
+            web.loadDataWithBaseURL("https://www.youtube.com/", html, "text/html", "utf-8",
+                    "https://www.youtube.com/youtube.html?source=" + videoId);
+        } catch (Exception e) {
+            finish();
+        }
     }
 
     @Override
